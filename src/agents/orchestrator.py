@@ -65,5 +65,5 @@ class Orchestrator:
 
 if __name__ == "__main__":
     orchestrator = Orchestrator()
-    print(orchestrator.route_query("How many jobs are there?"))
-    print(orchestrator.route_query("Find me a job description for a software engineer."))
+    # print(orchestrator.route_query("How many jobs are there?"))
+    # print(orchestrator.route_query("Find me a job description for a software engineer."))
