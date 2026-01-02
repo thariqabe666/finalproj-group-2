@@ -17,65 +17,129 @@ st.set_page_config(page_title="AI Career Hub", layout="wide", initial_sidebar_st
 # Custom CSS for Premium Look
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Outfit:wght@400;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Outfit:wght@400;600;700;800&display=swap');
 
-    .main {
-        background-color: #0f172a;
-    }
-    
-    body {
+    /* Global Base */
+    [data-testid="stAppViewContainer"] {
+        background: radial-gradient(circle at top right, #1e1b4b, #0f172a);
+        color: #f8fafc;
         font-family: 'Inter', sans-serif;
-        color: #f1f5f9;
     }
 
-    h1, h2, h3 {
-        font-family: 'Outfit', sans-serif;
+    [data-testid="stHeader"] {
+        background: rgba(0,0,0,0);
     }
 
-    .stButton>button {
-        border-radius: 8px;
-        font-weight: 600;
-        transition: all 0.2s;
-        background-color: #6366f1;
-        color: white;
-        border: none;
+    /* Sidebar Glassmorphism */
+    [data-testid="stSidebar"] {
+        background: rgba(15, 23, 42, 0.4) !important;
+        backdrop-filter: blur(12px) !important;
+        border-right: 1px solid rgba(255, 255, 255, 0.05) !important;
     }
 
-    .stButton>button:hover {
-        transform: scale(1.02);
-        background-color: #4f46e5;
-    }
-
-    .job-card {
-        background: rgba(30, 41, 59, 0.7);
-        backdrop-filter: blur(10px);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        border-radius: 16px;
-        padding: 1.5rem;
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        margin-bottom: 1rem;
-    }
-
-    .job-card:hover {
-        transform: translateY(-5px);
-        border-color: #6366f1;
-        box-shadow: 0 4px 20px rgba(99, 102, 241, 0.2);
+    /* Titles & Headers */
+    h1, h2, h3, .stMarkdown h1, .stMarkdown h2, .stMarkdown h3 {
+        font-family: 'Outfit', sans-serif !important;
+        font-weight: 800 !important;
+        letter-spacing: -0.02em !important;
+        color: #ffffff !important;
     }
 
     .gradient-text {
-        background: linear-gradient(90deg, #818cf8, #c084fc);
+        background: linear-gradient(135deg, #6366f1 0%, #a855f7 50%, #ec4899 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         font-weight: 800;
-        font-size: 3rem;
-        margin-bottom: 1rem;
+        font-size: 3.5rem;
+        margin-bottom: 1.5rem;
+        line-height: 1.2;
+        text-align: center;
+        width: 100%;
+        display: block;
     }
 
+    /* Glass Containers */
     .glass-container {
+        background: rgba(30, 41, 59, 0.5);
+        backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 24px;
+        padding: 2.5rem;
+        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        margin: 1rem 0;
+    }
+
+    /* Job Cards */
+    .job-card {
         background: rgba(255, 255, 255, 0.03);
+        backdrop-filter: blur(8px);
+        border: 1px solid rgba(255, 255, 255, 0.08);
         border-radius: 20px;
-        padding: 2rem;
-        border: 1px solid rgba(255, 255, 255, 0.05);
+        padding: 1.5rem;
+        transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        cursor: pointer;
+        height: 100%;
+    }
+
+    .job-card:hover {
+        background: rgba(255, 255, 255, 0.06);
+        transform: translateY(-8px) scale(1.02);
+        border-color: #6366f1;
+        box-shadow: 0 12px 40px rgba(99, 102, 241, 0.3);
+    }
+
+    /* Buttons */
+    .stButton>button {
+        background: linear-gradient(90deg, #6366f1, #8b5cf6) !important;
+        color: white !important;
+        border: none !important;
+        padding: 0.6rem 1.5rem !important;
+        border-radius: 12px !important;
+        font-weight: 600 !important;
+        transition: all 0.3s ease !important;
+        text-transform: none !important;
+    }
+
+    .stButton>button:hover {
+        transform: translateY(-2px) !important;
+        box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4) !important;
+        background: linear-gradient(90deg, #4f46e5, #7c3aed) !important;
+    }
+
+    /* Form Inputs */
+    .stTextInput>div>div>input, .stTextArea>div>div>textarea {
+        background: rgba(255, 255, 255, 0.05) !important;
+        border-radius: 10px !important;
+        border: 1px solid rgba(255, 255, 255, 0.1) !important;
+        color: white !important;
+    }
+
+    /* Tabs */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 2rem;
+        background-color: transparent;
+    }
+
+    .stTabs [data-baseweb="tab"] {
+        height: 50px;
+        white-space: pre-wrap;
+        background-color: transparent;
+        border-radius: 4px 4px 0 0;
+        gap: 0px;
+        font-weight: 600;
+        color: #94a3b8;
+    }
+
+    .stTabs [aria-selected="true"] {
+        color: #6366f1 !important;
+        border-bottom-color: #6366f1 !important;
+    }
+
+    /* Streamlit Overrides */
+    .stMetric {
+        background: rgba(255, 255, 255, 0.05);
+        padding: 1rem;
+        border-radius: 12px;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -137,49 +201,51 @@ with st.sidebar:
 if st.session_state.track == "🚀 Career Co-Pilot":
     # --- PHASE 1: LANDING PAGE ---
     if st.session_state.page == "landing":
-        st.markdown('<div style="text-align: center; padding: 4rem 0;">', unsafe_allow_html=True)
+        # Hero Section
+        st.markdown('<div style="text-align: center; padding: 5rem 0 2rem 0;">', unsafe_allow_html=True)
         st.markdown('<h1 class="gradient-text">Unlock Your Future</h1>', unsafe_allow_html=True)
-        st.markdown('<p style="font-size: 1.2rem; color: #94a3b8; max-width: 600px; margin: 0 auto 2rem auto;">Upload your CV and let our AI agents guide you to your dream career. We analyze, recommend, and prepare you for success.</p>', unsafe_allow_html=True)
-        
-        with st.container():
-            col1, col2, col3 = st.columns([1, 2, 1])
-            with col2:
-                st.markdown('<div class="glass-container">', unsafe_allow_html=True)
-                uploaded_file = st.file_uploader("Drop your CV here (PDF)", type=["pdf"], label_visibility="collapsed")
-                if uploaded_file:
-                    if st.button("Find My Path 🚀", use_container_width=True):
-                        with st.status("Analyzing your profile...", expanded=True) as status:
-                            # Save temp file
-                            temp_path = "temp_cv_landing.pdf"
-                            with open(temp_path, "wb") as f:
-                                f.write(uploaded_file.getbuffer())
-                            
-                            # Extract Text & Profile
-                            st.write("Extracting skills and experience...")
-                            cv_text = agents["advisor"].extract_text_from_pdf(temp_path)
-                            st.session_state.cv_text = cv_text
-                            
-                            # Get Search Query for RAG
-                            st.write("Identifying relevant job markets...")
-                            profile_prompt = "Analyze this CV and extract core skills, experience level, and preferred roles. Output a search query for job lookup.\n\nCV Content:\n" + cv_text[:5000]
-                            search_query = agents["advisor"].llm.invoke(profile_prompt).content
-                            
-                            # Retrieve Jobs
-                            st.write("Searching for matching opportunities...")
-                            job_docs = agents["advisor"].rag_agent.retrieve_documents(search_query, limit=6)
-                            st.session_state.jobs_list = [doc.metadata for doc in job_docs]
-                            
-                            # Initial Consultation Report
-                            st.write("Generating your career roadmap...")
-                            st.session_state.advisor_report = agents["advisor"].analyze_and_recommend(temp_path)
-                            
-                            os.remove(temp_path)
-                            status.update(label="Discovery Complete!", state="complete", expanded=False)
-                        
-                        st.session_state.page = "dashboard"
-                        st.rerun()
-                st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown('<p style="font-size: 1.25rem; color: #94a3b8; max-width: 700px; margin: 0 auto 3rem auto; text-align: center; line-height: 1.6;">Upload your CV and let our AI agents guide you to your dream career. We analyze, recommend, and prepare you for success.</p>', unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
+        
+        # Upload Section
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            st.markdown('<p style="text-align: center; color: #6366f1; font-weight: 600; margin-bottom: 0.5rem;">READY TO START?</p>', unsafe_allow_html=True)
+            uploaded_file = st.file_uploader("Drop your CV here (PDF)", type=["pdf"], label_visibility="collapsed")
+            if uploaded_file:
+                st.markdown('<div style="margin-top: 1rem;">', unsafe_allow_html=True)
+                if st.button("Find My Path 🚀", use_container_width=True):
+                    with st.status("Analyzing your profile...", expanded=True) as status:
+                        # Save temp file
+                        temp_path = "temp_cv_landing.pdf"
+                        with open(temp_path, "wb") as f:
+                            f.write(uploaded_file.getbuffer())
+                        
+                        # Extract Text & Profile
+                        st.write("Extracting skills and experience...")
+                        cv_text = agents["advisor"].extract_text_from_pdf(temp_path)
+                        st.session_state.cv_text = cv_text
+                        
+                        # Get Search Query for RAG
+                        st.write("Identifying relevant job markets...")
+                        profile_prompt = "Analyze this CV and extract core skills, experience level, and preferred roles. Output a search query for job lookup.\n\nCV Content:\n" + cv_text[:5000]
+                        search_query = agents["advisor"].llm.invoke(profile_prompt).content
+                        
+                        # Retrieve Jobs
+                        st.write("Searching for matching opportunities...")
+                        job_docs = agents["advisor"].rag_agent.retrieve_documents(search_query, limit=6)
+                        st.session_state.jobs_list = [doc.metadata for doc in job_docs]
+                        
+                        # Initial Consultation Report
+                        st.write("Generating your career roadmap...")
+                        st.session_state.advisor_report = agents["advisor"].analyze_and_recommend(temp_path)
+                        
+                        os.remove(temp_path)
+                        status.update(label="Discovery Complete!", state="complete", expanded=False)
+                    
+                    st.session_state.page = "dashboard"
+                    st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
 
     # --- PHASE 2: DASHBOARD ---
     elif st.session_state.page == "dashboard":
@@ -285,7 +351,7 @@ if st.session_state.track == "🚀 Career Co-Pilot":
 # --- TRACK 2: SMART CHAT ---
 elif st.session_state.track == "💬 Smart Chat":
     st.markdown('<h2 class="gradient-text" style="font-size: 2rem;">Smart Career Assistant</h2>', unsafe_allow_html=True)
-    st.write("Explore job market statistics or get detailed information about roles.")
+    st.markdown('<p style="font-size: 1.25rem; color: #94a3b8; max-width: 700px; margin: 0 auto 3rem auto; text-align: center; line-height: 1.6;">Explore job market statistics or get detailed information about roles.</p>', unsafe_allow_html=True)
 
     # Display chat history
     for message in st.session_state.messages:
