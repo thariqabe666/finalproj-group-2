@@ -178,6 +178,62 @@ class AdvisorAgent:
         
         return recommendation
 
+    def get_match_analysis(self, cv_text: str, job_description: str) -> dict:
+        """
+        Analyzes the match between a CV and a Job Description.
+        Returns a structured dictionary with match score, strengths, gaps, and recommendations.
+        """
+        logger.info("Performing deep match analysis...")
+        
+        prompt = ChatPromptTemplate.from_template(
+            """You are an expert AI Career Coach specializing in Applicant Tracking Systems (ATS) and job matching.
+            Analyze the gap between the candidate's CV and the job description provided.
+            
+            CANDIDATE CV:
+            {cv_text}
+            
+            JOB DESCRIPTION:
+            {job_description}
+            
+            Provide a detailed analysis in JSON format with the following keys:
+            1. "match_score": A number between 0 and 100.
+            2. "strengths": A list of key strengths the candidate has for this role.
+            3. "gaps": A list of missing skills or experience gaps.
+            4. "recommendations": A list of actionable steps for the candidate to improve their candidacy.
+            5. "summary": A brief professional summary of the match.
+
+            Ensure the output is ONLY the JSON object.
+            """
+        )
+        
+        chain = prompt | self.llm | StrOutputParser()
+        
+        response = chain.invoke({
+            "cv_text": cv_text[:5000],
+            "job_description": job_description
+        }, config={"callbacks": [self.langfuse_handler]})
+        
+        try:
+            # Clean response if it contains markdown code blocks
+            json_str = response.strip()
+            if json_str.startswith("```json"):
+                json_str = json_str[7:-3].strip()
+            elif json_str.startswith("```"):
+                json_str = json_str[3:-3].strip()
+                
+            import json
+            return json.loads(json_str)
+        except Exception as e:
+            logger.error(f"Error parsing match analysis JSON: {e}")
+            # Fallback if JSON parsing fails
+            return {
+                "match_score": 0,
+                "strengths": ["Error parsing analysis"],
+                "gaps": ["Error parsing analysis"],
+                "recommendations": ["Please try again"],
+                "summary": "There was an error generating the structured analysis."
+            }
+
     def run(self, query: str, context: str = None) -> str:
         """
         Generates advice based on the query. 

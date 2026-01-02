@@ -16,20 +16,31 @@ class InterviewAgent:
         self.prompt = ChatPromptTemplate.from_template("""
             You are a professional Interviewer. 
             
+            JOB DESCRIPTION:
+            {job_description}
+            
+            CANDIDATE CV:
+            {cv_text}
+            
             HISTORY: {history}
             CANDIDATE ANSWER: {answer}
             
             INSTRUCTIONS:
             1. Response in the SAME LANGUAGE as the candidate.
-            2. Give brief feedback on the answer.
-            3. Ask exactly ONE follow-up question.
+            2. Give brief feedback on the answer based on the job requirements and candidate's CV.
+            3. Ask exactly ONE follow-up question that is relevant to the role and the candidate's previous answer.
             
             YOUR RESPONSE:
         """)
 
-    def get_response(self, history, user_answer):
+    def get_response(self, history, user_answer, job_description, cv_text):
         chain = self.prompt | self.llm | StrOutputParser()
-        return chain.invoke({"history": history, "answer": user_answer})
+        return chain.invoke({
+            "history": history, 
+            "answer": user_answer,
+            "job_description": job_description,
+            "cv_text": cv_text
+        })
 
     def listen(self):
         """

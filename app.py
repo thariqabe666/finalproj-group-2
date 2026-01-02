@@ -7,6 +7,7 @@ from src.agents.cover_letter_agent import CoverLetterAgent
 from src.agents.interview_agent import InterviewAgent
 from streamlit_mic_recorder import mic_recorder
 import openai
+import hashlib
 
 # Load environment variables
 load_dotenv()
@@ -155,6 +156,59 @@ def init_agents():
     }
 
 agents = init_agents()
+ 
+def get_full_job_data(doc, agents):
+    """
+    Merges data from RAG (Qdrant) and SQL (SQLite) to provide complete job info.
+    """
+    data = doc.metadata.copy()
+    
+    # Description is often in page_content (RAG)
+    if 'page_content' in data:
+        data['description'] = data['page_content']
+    elif hasattr(doc, 'page_content'):
+        data['description'] = doc.page_content
+        
+    # Clean up title and company if keys are different
+    if 'job_title' in data and 'title' not in data: data['title'] = data['job_title']
+    if 'company_name' in data and 'company' not in data: data['company'] = data['company_name']
+    
+    # Try to fetch more details from SQL if sql_id exists
+    sql_id = data.get('sql_id')
+    if sql_id is not None:
+        try:
+            db = agents["orchestrator"].sql_agent.db
+            sql_query = f"SELECT * FROM jobs_table WHERE id = {sql_id}"
+            res = db.run(sql_query)
+            # res is usually a string representation of list of tuples from langchain SQLDatabase
+            # Example: "[(0, 'Title', 'Company', 'Location', 'Type', None, None)]"
+            import ast
+            res_list = ast.literal_eval(res)
+            if res_list and len(res_list) > 0:
+                row = res_list[0]
+                # Mapping: (id, job_title, company_name, clean_location, work_type, min_salary, max_salary)
+                data['location'] = row[3] if len(row) > 3 else data.get('location')
+                data['type'] = row[4] if len(row) > 4 else data.get('type')
+                
+                min_s = row[5] if len(row) > 5 else None
+                max_s = row[6] if len(row) > 6 else None
+                if min_s or max_s:
+                    data['salary'] = f"{min_s or '?'}-{max_s or '?'}"
+                else:
+                    data['salary'] = data.get('salary', 'Competitive')
+        except Exception as e:
+            print(f"Error fetching SQL data: {e}")
+            
+    # Final normalization
+    return {
+        "title": data.get("title", "Unknown Title"),
+        "company": data.get("company", "Unknown Company"),
+        "location": data.get("location", "Remote/Not specified"),
+        "description": data.get("description", "No description available..."),
+        "type": data.get("type", "Not specified"),
+        "salary": data.get("salary", "Competitive"),
+        "sql_id": sql_id
+    }
 
 # Initialize Session State
 if "track" not in st.session_state:
@@ -234,7 +288,7 @@ if st.session_state.track == "🚀 Career Co-Pilot":
                         # Retrieve Jobs
                         st.write("Searching for matching opportunities...")
                         job_docs = agents["advisor"].rag_agent.retrieve_documents(search_query, limit=6)
-                        st.session_state.jobs_list = [doc.metadata for doc in job_docs]
+                        st.session_state.jobs_list = [get_full_job_data(doc, agents) for doc in job_docs]
                         
                         # Initial Consultation Report
                         st.write("Generating your career roadmap...")
@@ -280,23 +334,60 @@ if st.session_state.track == "🚀 Career Co-Pilot":
         job = st.session_state.selected_job
         st.markdown(f"## 🛠️ Workspace: <span style='color: #818cf8;'>{job.get('title')}</span> @ {job.get('company')}", unsafe_allow_html=True)
         
+        # Display Job Info in a nice glass container
+        with st.container():
+            col1, col2 = st.columns([1, 1])
+            with col1:
+                st.markdown(f"""
+                <div class="glass-container" style="padding: 1.5rem; margin-bottom: 1rem;">
+                    <h4 style="margin-top:0;">Job Details</h4>
+                    <p><b>📍 Location:</b> {job.get('location', 'Not specified')}</p>
+                    <p><b>💼 Type:</b> {job.get('type', 'Not specified')}</p>
+                    <p><b>💰 Salary:</b> {job.get('salary', 'Competitive')}</p>
+                    <p><b>🏢 Company:</b> {job.get('company', 'Unknown')}</p>
+                </div>
+                """, unsafe_allow_html=True)
+            with col2:
+                st.markdown(f"""
+                <div class="glass-container" style="padding: 1.5rem; margin-bottom: 1rem;">
+                    <h4 style="margin-top:0;">Description</h4>
+                    <p style="font-size: 0.9rem; max-height: 120px; overflow-y: auto;">{job.get('description', 'No description available.')}</p>
+                </div>
+                """, unsafe_allow_html=True)
+
         tab1, tab2, tab3 = st.tabs(["📊 Match Analysis", "📝 Cover Letter", "🎙️ Interview Sim"])
         
         with tab1:
             st.subheader("Match Analysis")
-            with st.container(border=True):
-                if st.button("Start Analysis"):
-                    with st.spinner("Analyzing compatibility..."):
-                        prompt = f"""
-                        Analyze the gap between this candidate's CV and the job description.
-                        CANDIDATE CV: {st.session_state.cv_text[:5000]}
-                        JOB DESCRIPTION: {job.get('description')}
-                        Provide a detailed Markdown report covering: 1. Match Score (0-100), 2. Key Strengths, 3. Skill Gaps, 4. Recommendations.
-                        """
-                        analysis = agents["advisor"].llm.invoke(prompt).content
-                        st.markdown(analysis)
-                else:
-                    st.info("Click the button above to start a deep analysis.")
+            if st.button("Start Deep Analysis"):
+                with st.spinner("Analyzing compatibility..."):
+                    results = agents["advisor"].get_match_analysis(
+                        st.session_state.cv_text, 
+                        job.get('description')
+                    )
+                    
+                    # Display Score
+                    score = results.get("match_score", 0)
+                    st.markdown(f"### Match Score: {score}%")
+                    st.progress(score / 100)
+                    
+                    st.markdown(f"**Summary:** {results.get('summary', '')}")
+                    
+                    col_s, col_g = st.columns(2)
+                    with col_s:
+                        st.success("✅ **Key Strengths**")
+                        for s in results.get("strengths", []):
+                            st.write(f"- {s}")
+                    with col_g:
+                        st.error("⚠️ **Skill Gaps**")
+                        for g in results.get("gaps", []):
+                            st.write(f"- {g}")
+                    
+                    st.info("💡 **Actionable Recommendations**")
+                    for r in results.get("recommendations", []):
+                        st.write(f"- {r}")
+            else:
+                st.info("Click the button above to start a deep compatibility analysis between your CV and this job.")
 
         with tab2:
             st.subheader("Tailored Cover Letter")
@@ -319,6 +410,8 @@ if st.session_state.track == "🚀 Career Co-Pilot":
             if "interview_history_text" not in st.session_state:
                 st.session_state.interview_history_text = f"You are interviewing for {job.get('title')} at {job.get('company')}.\n"
                 st.session_state.current_q = f"Hello! Let's start the interview for the {job.get('title')} position. Could you introduce yourself?"
+                # Initialize history with the first question
+                st.session_state.interview_log.append({"role": "assistant", "content": st.session_state.current_q})
 
             col_left, col_right = st.columns([2, 1])
             with col_right:
@@ -331,22 +424,54 @@ if st.session_state.track == "🚀 Career Co-Pilot":
             with col_left:
                 st.markdown(f"**Interviewer:** {st.session_state.current_q}")
                 audio_data = mic_recorder(start_prompt="Record Answer 🎤", stop_prompt="Stop & Send ✅", key='workspace_mic')
+                
                 if audio_data:
                     audio_bytes = audio_data['bytes']
-                    with st.status("Processing...", expanded=False):
-                        with open("temp_ws_int.mp3", "wb") as f: f.write(audio_bytes)
-                        client = openai.OpenAI()
-                        with open("temp_ws_int.mp3", "rb") as audio_file:
-                            transcript = client.audio.transcriptions.create(model="whisper-1", file=audio_file)
-                        user_text = transcript.text
-                        st.session_state.interview_log.append(user_text)
-                        response = agents["interview"].get_response(st.session_state.interview_history_text, user_text)
-                        st.session_state.interview_history_text += f"Candidate: {user_text}\nInterviewer: {response}\n"
-                        st.session_state.current_q = response
-                        os.remove("temp_ws_int.mp3")
-                    st.rerun()
+                    audio_hash = hashlib.md5(audio_bytes).hexdigest()
+                    
+                    # Only process if this is a new recording
+                    if "last_processed_audio_hash" not in st.session_state or st.session_state.last_processed_audio_hash != audio_hash:
+                        with st.status("Processing Interview Response...", expanded=False):
+                            with open("temp_ws_int.mp3", "wb") as f: f.write(audio_bytes)
+                            client = openai.OpenAI()
+                            with open("temp_ws_int.mp3", "rb") as audio_file:
+                                transcript = client.audio.transcriptions.create(model="whisper-1", file=audio_file)
+                            user_text = transcript.text
+                            
+                            # Append user answer to log
+                            st.session_state.interview_log.append({"role": "user", "content": user_text})
+                            
+                            # Pass CV and Job Description for better context
+                            response = agents["interview"].get_response(
+                                st.session_state.interview_history_text, 
+                                user_text,
+                                job.get('description', ''),
+                                st.session_state.cv_text or ''
+                            )
+                            
+                            # Append interviewer response to log
+                            st.session_state.interview_log.append({"role": "assistant", "content": response})
+                            
+                            st.session_state.interview_history_text += f"Candidate: {user_text}\nInterviewer: {response}\n"
+                            st.session_state.current_q = response
+                            st.session_state.last_processed_audio_hash = audio_hash
+                            os.remove("temp_ws_int.mp3")
+                        st.rerun()
+
+                # Display the most recent transcription clearly if history exists
+                user_messages = [m for m in st.session_state.interview_log if m["role"] == "user"]
+                if user_messages:
+                    st.markdown("---")
+                    st.markdown("### 🎙️ Your Latest Answer")
+                    st.info(user_messages[-1]["content"])
+
+                st.markdown("---")
+                st.markdown("### 📜 Interview History")
+                # Filter out the current active question if it's already in the log to avoid duplication in display
+                # History shows everything in order
                 for msg in reversed(st.session_state.interview_log):
-                    with st.chat_message("user"): st.write(msg)
+                    with st.chat_message(msg["role"]): 
+                        st.write(msg["content"])
 
 # --- TRACK 2: SMART CHAT ---
 elif st.session_state.track == "💬 Smart Chat":
