@@ -241,7 +241,7 @@ def reset_session():
 with st.sidebar:
     st.title("🛡️ AI Career Hub")
     st.markdown("---")
-    selected_track = st.radio("Navigation", ["🚀 Career Co-Pilot", "💬 Smart Chat"])
+    selected_track = st.radio("Navigation", ["🚀 Career Co-Pilot", "💬 Smart Chat", "ℹ️ About"])
     
     if selected_track != st.session_state.track:
         st.session_state.track = selected_track
@@ -605,46 +605,119 @@ if st.session_state.track == "🚀 Career Co-Pilot":
                     with st.chat_message(msg["role"]):
                         st.write(msg["content"])
 
-# --- TRACK 2: SMART CHAT ---
-elif st.session_state.track == "💬 Smart Chat":
-    st.markdown('<h2 class="gradient-text" style="font-size: 2rem;">Smart Career Assistant</h2>', unsafe_allow_html=True)
-    st.markdown('<p style="font-size: 1.25rem; color: #94a3b8; max-width: 700px; margin: 0 auto 3rem auto; text-align: center; line-height: 1.6;">Explore job market statistics or get detailed information about roles.</p>', unsafe_allow_html=True)
+# --- TRACK 3: ABOUT PAGE ---
+elif st.session_state.track == "ℹ️ About":
+    st.markdown('<div style="text-align: center; padding: 3rem 0 2rem 0;">', unsafe_allow_html=True)
+    st.markdown('<h1 class="gradient-text">About AI Career Hub</h1>', unsafe_allow_html=True)
+    st.markdown('<p style="font-size: 1.25rem; color: #94a3b8; max-width: 800px; margin: 0 auto; text-align: center;">Your intelligent companion for navigating the modern job market. Powered by advanced AI agents to bridge the gap between your skills and your dream career.</p>', unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
 
-    # Display chat history
-    for message in st.session_state.messages:
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"])
-
-    if prompt := st.chat_input("Ask about job trends, requirements, or salaries..."):
-        st.session_state.messages.append({"role": "user", "content": prompt})
-        with st.chat_message("user"):
-            st.markdown(prompt)
-
-        with st.chat_message("assistant"):
-            status = st.status("Searching knowledge base & statistics...", expanded=True)
-            
-            def stream_handler():
-                full_response = ""
-                for mode, content in agents["orchestrator"].stream_query(prompt, chat_history=st.session_state.messages):
-                    if mode == "thought":
-                        status.write(content)
-                    elif mode == "content":
-                        full_response += content
-                        yield content
-                    elif mode == "metadata":
-                        st.session_state.last_metadata = content
-                status.update(label="Response generated", state="complete", expanded=False)
-
-            response = st.write_stream(stream_handler())
-            
-            if "last_metadata" in st.session_state:
-                m = st.session_state.last_metadata
-                st.caption(f"⚡ {m['latency']:.1f}s | 📥 {m['input_tokens']} tokens | 📤 {m['output_tokens']} tokens")
-                del st.session_state.last_metadata
-        
-        st.session_state.messages.append({"role": "assistant", "content": response})
+    # Feature Grid
+    st.markdown("### 🌟 Core Features")
+    col1, col2, col3 = st.columns(3)
     
-    if st.session_state.messages:
-        if st.button("🗑️ Clear Chat History"):
-            st.session_state.messages = []
-            st.rerun()
+    with col1:
+        st.markdown("""
+        <div class="glass-container" style="height: 100%;">
+            <h3 style="color: #6366f1;">🚀 Career Co-Pilot</h3>
+            <p style="color: #94a3b8; font-size: 0.95rem;">
+                Upload your CV and get instant matches from our high-quality job database. 
+                Our <b>Advisor Agent</b> performs deep semantic analysis to find the best fit for your profile.
+            </p>
+            <ul style="color: #cbd5e1; font-size: 0.9rem; padding-left: 1.2rem;">
+                <li>CV Parsing & Skills Extraction</li>
+                <li>Match Score & Gap Analysis</li>
+                <li>Tailored Recommendations</li>
+            </ul>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with col2:
+        st.markdown("""
+        <div class="glass-container" style="height: 100%;">
+            <h3 style="color: #a855f7;">🎙️ Interview Sim</h3>
+            <p style="color: #94a3b8; font-size: 0.95rem;">
+                Master your interviewing skills with our voice-enabled interactive simulator. 
+                Get real-time feedback and a comprehensive performance evaluation.
+            </p>
+            <ul style="color: #cbd5e1; font-size: 0.9rem; padding-left: 1.2rem;">
+                <li>Voice-to-Text Interaction</li>
+                <li>Context-Aware Questions</li>
+                <li>Detailed Performance Scores</li>
+            </ul>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with col3:
+        st.markdown("""
+        <div class="glass-container" style="height: 100%;">
+            <h3 style="color: #ec4899;">💬 Smart Chat</h3>
+            <p style="color: #94a3b8; font-size: 0.95rem;">
+                Ask our <b>Orchestrator Agent</b> anything about the job market. 
+                Combining SQL analytics and RAG (Retrieval-Augmented Generation) for accurate insights.
+            </p>
+            <ul style="color: #cbd5e1; font-size: 0.9rem; padding-left: 1.2rem;">
+                <li>Job Market Trends</li>
+                <li>Salary Benchmarking</li>
+                <li>Strategic Career Advice</li>
+            </ul>
+        </div>
+        """, unsafe_allow_html=True)
+
+    st.markdown("---")
+    
+    # AI Agents Section
+    st.markdown("### 🤖 Meet the Agents")
+    agent_col1, agent_col2 = st.columns(2)
+    
+    with agent_col1:
+        st.markdown("""
+        <div style="background: rgba(255,255,255,0.03); padding: 1.5rem; border-radius: 16px; border-left: 4px solid #6366f1; margin-bottom: 1rem;">
+            <h4 style="margin: 0;">The Orchestrator</h4>
+            <p style="color: #94a3b8; font-size: 0.9rem; margin: 0.5rem 0 0 0;">
+                The brain of the system. It decides which expert agent to call based on your query, 
+                ensuring you get the most relevant information from SQL or vector databases.
+            </p>
+        </div>
+        <div style="background: rgba(255,255,255,0.03); padding: 1.5rem; border-radius: 16px; border-left: 4px solid #a855f7;">
+            <h4 style="margin: 0;">The Advisor</h4>
+            <p style="color: #94a3b8; font-size: 0.9rem; margin: 0.5rem 0 0 0;">
+                Expert in matching candidates to roles. It analyzes your experience, 
+                identifies skill gaps, and recommends improvements for your career journey.
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+    with agent_col2:
+        st.markdown("""
+        <div style="background: rgba(255,255,255,0.03); padding: 1.5rem; border-radius: 16px; border-left: 4px solid #ec4899; margin-bottom: 1rem;">
+            <h4 style="margin: 0;">The Interviewer</h4>
+            <p style="color: #94a3b8; font-size: 0.9rem; margin: 0.5rem 0 0 0;">
+                Simulates real-world interview scenarios. Using advanced NLP, it provides challenging 
+                follow-up questions and honest, constructive feedback.
+            </p>
+        </div>
+        <div style="background: rgba(255,255,255,0.03); padding: 1.5rem; border-radius: 16px; border-left: 4px solid #10b981;">
+            <h4 style="margin: 0;">Cover Letter Expert</h4>
+            <p style="color: #94a3b8; font-size: 0.9rem; margin: 0.5rem 0 0 0;">
+                Crafts compelling, professional cover letters that highlight your unique strengths 
+                in direct relation to specific job requirements.
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+
+    # Tech Stack Footer
+    st.markdown("<br><br>", unsafe_allow_html=True)
+    st.markdown("""
+    <div style="text-align: center; opacity: 0.7;">
+        <p style="font-size: 0.8rem; letter-spacing: 0.1rem; color: #94a3b8;">BUILT WITH MISSION-CRITICAL TECH</p>
+        <div style="display: flex; justify-content: center; gap: 2rem; color: white; font-weight: 600; font-size: 0.9rem;">
+            <span>Streamlit</span>
+            <span>LangChain</span>
+            <span>Qdrant</span>
+            <span>OpenAI</span>
+            <span>Groq</span>
+            <span>Langfuse</span>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
