@@ -4,7 +4,10 @@ from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
+from langchain_core.messages import HumanMessage
 from pypdf import PdfReader
+import fitz  # PyMuPDF
+import base64
 from .rag_agent import RAGAgent
 from langfuse.langchain import CallbackHandler
 
@@ -40,19 +43,70 @@ class AdvisorAgent:
             Provide your advice:"""
         )
 
+    def extract_text_via_vision(self, pdf_path: str) -> str:
+        """
+        Fallback: Uses OpenAI Vision to extract information from a PDF that couldn't be parsed normally.
+        Converts the first few pages of the PDF to images and sends them to the LLM.
+        """
+        logger.info("Using Vision fallback for PDF extraction...")
+        try:
+            doc = fitz.open(pdf_path)
+            
+            content = [
+                {
+                    "type": "text",
+                    "text": "You are a professional CV analyzer. Extract ALL textual information from the images of this CV. Maintain the structure and content accurately."
+                }
+            ]
+            
+            # Only process first 3 pages to avoid excessive token usage and handle most CVs
+            for i in range(min(len(doc), 3)):
+                page = doc.load_page(i)
+                # Increase resolution for better OCR (zoom=2)
+                matrix = fitz.Matrix(2, 2)
+                pix = page.get_pixmap(matrix=matrix)
+                img_bytes = pix.tobytes("png")
+                base64_image = base64.b64encode(img_bytes).decode('utf-8')
+                
+                content.append({
+                    "type": "image_url",
+                    "image_url": {
+                        "url": f"data:image/png;base64,{base64_image}"
+                    }
+                })
+            
+            # Use gpt-4o-mini for efficient vision task
+            # We call the model with HumanMessage for LangChain compatibility
+            response = self.llm.invoke([HumanMessage(content=content)], config={"callbacks": [self.langfuse_handler]})
+            doc.close()
+            return response.content
+        except Exception as e:
+            logger.error(f"Error during vision OCR: {e}")
+            return ""
+
     def extract_text_from_pdf(self, pdf_path: str) -> str:
         """
-        Extracts text from a PDF file.
+        Extracts text from a PDF file. Uses Vision fallback if standard parsing fails.
         """
         try:
             reader = PdfReader(pdf_path)
             text = ""
             for page in reader.pages:
-                text += page.extract_text() + "\n"
+                extracted = page.extract_text()
+                if extracted:
+                    text += extracted + "\n"
+            
+            # Check if extracted text is suspiciously short (e.g., scanned PDF)
+            if len(text.strip()) < 50:
+                logger.warning("Extracted text is too short or empty. Attempting Vision fallback.")
+                vision_text = self.extract_text_via_vision(pdf_path)
+                return vision_text if vision_text else text
+                
             return text
         except Exception as e:
             logger.error(f"Error extracting text from PDF: {e}")
-            return ""
+            # Try vision fallback even on parsing error
+            return self.extract_text_via_vision(pdf_path)
 
     def analyze_and_recommend(self, pdf_path: str) -> str:
         """
@@ -123,6 +177,62 @@ class AdvisorAgent:
         }, config={"callbacks": [self.langfuse_handler]})
         
         return recommendation
+
+    def get_match_analysis(self, cv_text: str, job_description: str) -> dict:
+        """
+        Analyzes the match between a CV and a Job Description.
+        Returns a structured dictionary with match score, strengths, gaps, and recommendations.
+        """
+        logger.info("Performing deep match analysis...")
+        
+        prompt = ChatPromptTemplate.from_template(
+            """You are an expert AI Career Coach specializing in Applicant Tracking Systems (ATS) and job matching.
+            Analyze the gap between the candidate's CV and the job description provided.
+            
+            CANDIDATE CV:
+            {cv_text}
+            
+            JOB DESCRIPTION:
+            {job_description}
+            
+            Provide a detailed analysis in JSON format with the following keys:
+            1. "match_score": A number between 0 and 100.
+            2. "strengths": A list of key strengths the candidate has for this role.
+            3. "gaps": A list of missing skills or experience gaps.
+            4. "recommendations": A list of actionable steps for the candidate to improve their candidacy.
+            5. "summary": A brief professional summary of the match.
+
+            Ensure the output is ONLY the JSON object.
+            """
+        )
+        
+        chain = prompt | self.llm | StrOutputParser()
+        
+        response = chain.invoke({
+            "cv_text": cv_text[:5000],
+            "job_description": job_description
+        }, config={"callbacks": [self.langfuse_handler]})
+        
+        try:
+            # Clean response if it contains markdown code blocks
+            json_str = response.strip()
+            if json_str.startswith("```json"):
+                json_str = json_str[7:-3].strip()
+            elif json_str.startswith("```"):
+                json_str = json_str[3:-3].strip()
+                
+            import json
+            return json.loads(json_str)
+        except Exception as e:
+            logger.error(f"Error parsing match analysis JSON: {e}")
+            # Fallback if JSON parsing fails
+            return {
+                "match_score": 0,
+                "strengths": ["Error parsing analysis"],
+                "gaps": ["Error parsing analysis"],
+                "recommendations": ["Please try again"],
+                "summary": "There was an error generating the structured analysis."
+            }
 
     def run(self, query: str, context: str = None) -> str:
         """
