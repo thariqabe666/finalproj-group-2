@@ -716,7 +716,6 @@ elif st.session_state.track == "ℹ️ About":
             <span>LangChain</span>
             <span>Qdrant</span>
             <span>OpenAI</span>
-            <span>Groq</span>
             <span>Langfuse</span>
         </div>
     </div>
