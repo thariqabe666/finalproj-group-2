@@ -605,6 +605,50 @@ if st.session_state.track == "🚀 Career Co-Pilot":
                     with st.chat_message(msg["role"]):
                         st.write(msg["content"])
 
+# --- TRACK 2: SMART CHAT ---
+elif st.session_state.track == "💬 Smart Chat":
+    st.markdown('<h2 class="gradient-text" style="font-size: 2rem;">Smart Career Assistant</h2>', unsafe_allow_html=True)
+    st.markdown('<p style="font-size: 1.25rem; color: #94a3b8; max-width: 700px; margin: 0 auto 3rem auto; text-align: center; line-height: 1.6;">Explore job market statistics or get detailed information about roles.</p>', unsafe_allow_html=True)
+
+    # Display chat history
+    for message in st.session_state.messages:
+        with st.chat_message(message["role"]):
+            st.markdown(message["content"])
+
+    if prompt := st.chat_input("Ask about job trends, requirements, or salaries..."):
+        st.session_state.messages.append({"role": "user", "content": prompt})
+        with st.chat_message("user"):
+            st.markdown(prompt)
+
+        with st.chat_message("assistant"):
+            status = st.status("Searching knowledge base & statistics...", expanded=True)
+
+            def stream_handler():
+                full_response = ""
+                for mode, content in agents["orchestrator"].stream_query(prompt, chat_history=st.session_state.messages):
+                    if mode == "thought":
+                        status.write(content)
+                    elif mode == "content":
+                        full_response += content
+                        yield content
+                    elif mode == "metadata":
+                        st.session_state.last_metadata = content
+                status.update(label="Response generated", state="complete", expanded=False)
+
+            response = st.write_stream(stream_handler())
+
+            if "last_metadata" in st.session_state:
+                m = st.session_state.last_metadata
+                st.caption(f"⚡ {m['latency']:.1f}s | 📥 {m['input_tokens']} tokens | 📤 {m['output_tokens']} tokens")
+                del st.session_state.last_metadata
+
+        st.session_state.messages.append({"role": "assistant", "content": response})
+
+        if st.session_state.messages:
+            if st.button("🗑️ Clear Chat History"):
+                st.session_state.messages = []
+                st.rerun()
+
 # --- TRACK 3: ABOUT PAGE ---
 elif st.session_state.track == "ℹ️ About":
     st.markdown('<div style="text-align: center; padding: 3rem 0 2rem 0;">', unsafe_allow_html=True)
