@@ -11,3 +11,6 @@ SpeechRecognition
 streamlit
 streamlit-mic-recorder
 pymupdf
+fastapi
+uvicorn
+langgraph
